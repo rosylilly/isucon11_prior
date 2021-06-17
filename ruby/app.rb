@@ -47,8 +47,30 @@ class App < Sinatra::Base
     end
 
     def get_reservations(schedule)
-      reservations = db.xquery('SELECT * FROM `reservations` WHERE `schedule_id` = ?', schedule[:id]).map do |reservation|
-        reservation[:user] = get_user(reservation[:user_id])
+      # reservations = db.xquery('SELECT * FROM `reservations` WHERE `schedule_id` = ?', schedule[:id]).map do |reservation|
+      #   reservation[:user] = get_user(reservation[:user_id])
+      #   reservation
+      # end
+      reservations = db.xquery(
+        'SELECT ' +
+        '`reservations`.`id` as `r_id`, `reservations`.`schedule_id` as `r_schedule_id`, `reservations`.`user_id` as `r_user_id`, `reservations`.`created_at` as `r_created_at`, ' +
+        '`users`.`id` as `u_id`, `users`.`email` as `u_email`, `users`.`nickname` as `u_nickname`, `users`.`created_at` as `u_created_at`' +
+        ' FROM `reservations` INNER JOIN `users` ON `reservations`.`user_id` = `users`.`id`' +
+        ' WHERE `schedule_id` = ?',
+        schedule[:id]
+      ).map do |data|
+        reservation = {}
+        user = {}
+        data.keys.each do |key|
+          if key.start_with?('r_')
+            # r_id => id
+            reservation[key[2..]] = data[key]
+          else
+            user[key[2..]] = data[key]
+          end
+        end
+        user[:email] = '' if !current_user || !current_user[:staff]
+        reservation[:user] = user
         reservation
       end
       schedule[:reservations] = reservations
