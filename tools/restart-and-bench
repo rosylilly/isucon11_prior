@@ -18,7 +18,7 @@ sleep 5
 # ベンチマークの実行
 echo
 echo ":: BENCHMARK        ====>"
-/home/isucon/.x /home/isucon/bin/benchmarker
+/home/isucon/.x /home/isucon/bin/benchmarker -parallelism=5
 
 # alp で解析
 echo
