@@ -63,7 +63,6 @@ class App < Sinatra::Base
         user = {}
         data.keys.each do |key|
           if key.start_with?('r_')
-            # r_id => id
             reservation[key[2..]] = data[key]
           else
             user[key[2..]] = data[key]
