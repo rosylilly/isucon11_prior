@@ -77,8 +77,9 @@ class App < Sinatra::Base
     end
 
     def get_reservations_count(schedule)
-      reservations = db.xquery('SELECT * FROM `reservations` WHERE `schedule_id` = ?', schedule[:id])
-      schedule[:reserved] = reservations.size
+      # reservations = db.xquery('SELECT * FROM `reservations` WHERE `schedule_id` = ?', schedule[:id])
+      # schedule[:reserved] = reservations.size
+      schedule[:reserved] = db.xquery('SELECT COUNT(id) as `cnt` FROM `reservations` WHERE `schedule_id` = ?', schedule[:id]).first[:cnt]
     end
 
     def get_user(id)
@@ -169,16 +170,20 @@ class App < Sinatra::Base
       halt(403, JSON.generate(error: 'user not found')) unless tx.xquery('SELECT 1 FROM `users` WHERE `id` = ? LIMIT 1', user_id).first
       halt(403, JSON.generate(error: 'already taken')) if tx.xquery('SELECT 1 FROM `reservations` WHERE `schedule_id` = ? AND `user_id` = ? LIMIT 1', schedule_id, user_id).first
 
-      capacity = tx.xquery('SELECT `capacity` FROM `schedules` WHERE `id` = ? LIMIT 1', schedule_id).first[:capacity]
-      reserved = 0
-      tx.xquery('SELECT * FROM `reservations` WHERE `schedule_id` = ?', schedule_id).each do
-        reserved += 1
-      end
+      # capacity = tx.xquery('SELECT `capacity` FROM `schedules` WHERE `id` = ? LIMIT 1', schedule_id).first[:capacity]
+      # reserved = 0
+      # tx.xquery('SELECT * FROM `reservations` WHERE `schedule_id` = ?', schedule_id).each do
+      #   reserved += 1
+      # end
+      row = tx.xquery('SELECT `capacity`, `reserved` FROM `schedules` WHERE `id` = ? LIMIT 1', schedule_id).first
+      capacity = row[:capacity]
+      reserved = row[:reserved]
 
       halt(403, JSON.generate(error: 'capacity is already full')) if reserved >= capacity
 
       tx.xquery('INSERT INTO `reservations` (`id`, `schedule_id`, `user_id`, `created_at`) VALUES (?, ?, ?, NOW(6))', id, schedule_id, user_id)
       created_at = tx.xquery('SELECT `created_at` FROM `reservations` WHERE `id` = ?', id).first[:created_at]
+      tx.xquery('UPDATE `schedules` SET `reserved` = `reserved` + 1 WHERE `id` = ?', schedule_id)
 
       json({ id: id, schedule_id: schedule_id, user_id: user_id, created_at: created_at})
     end
@@ -186,9 +191,6 @@ class App < Sinatra::Base
 
   get '/api/schedules' do
     schedules = db.xquery('SELECT * FROM `schedules` ORDER BY `id` DESC');
-    schedules.each do |schedule|
-      get_reservations_count(schedule)
-    end
 
     json(schedules.to_a)
   end
